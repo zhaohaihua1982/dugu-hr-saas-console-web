@@ -1,21 +1,12 @@
 [
-  {"id":"overview","icon":"LayoutDashboard","label":{"zh":"总览","zh-TW":"總覽","en":"Overview"}},
-  {
-    "id":"people","icon":"Users","label":{"zh":"人员","zh-TW":"人員","en":"People"},
-    "children":[
-      {"id":"people-group","label":{"zh":"组织与人员","zh-TW":"組織與人員","en":"ORGANIZATION & PEOPLE"},"children":[
-        {"id":"dashboard","icon":"LayoutDashboard","label":{"zh":"工作台","zh-TW":"工作台","en":"Dashboard"}},
-        {"id":"employees","icon":"Users","label":{"zh":"员工管理","zh-TW":"員工管理","en":"Employees"}},
-        {"id":"organization","icon":"Building2","label":{"zh":"组织架构","zh-TW":"組織架構","en":"Organization"}}
-      ]},
-      {"id":"workforce-group","label":{"zh":"人事运营","zh-TW":"人事營運","en":"WORKFORCE"},"children":[
-        {"id":"attendance","icon":"Clock3","label":{"zh":"考勤与假勤","zh-TW":"考勤與假勤","en":"Attendance"}},
-        {"id":"payroll","icon":"FileText","label":{"zh":"薪酬管理","zh-TW":"薪酬管理","en":"Payroll"}}
-      ]}
-    ]
-  },
-  {"id":"organization-module","icon":"Network","label":{"zh":"组织","zh-TW":"組織","en":"Organization"}},
-  {"id":"attendance-module","icon":"Clock3","label":{"zh":"考勤","zh-TW":"考勤","en":"Time"}},
-  {"id":"payroll-module","icon":"Activity","label":{"zh":"薪酬","zh-TW":"薪酬","en":"Payroll"}},
-  {"id":"system","icon":"Settings2","label":{"zh":"系统","zh-TW":"系統","en":"System"}}
+  {"id":"organization-management","type":"directory","icon":"Building2","label":{"zh":"组织管理","zh-TW":"組織管理","en":"Organization Management"},"children":[{"id":"user-management","type":"menu","icon":"Users","label":{"zh":"用户管理","zh-TW":"使用者管理","en":"User Management"}}]},
+  {"id":"access-control","type":"directory","icon":"ShieldCheck","label":{"zh":"权限管控","zh-TW":"權限管控","en":"Access Control"},"children":[{"id":"menu-management","type":"menu","icon":"Menu","label":{"zh":"菜单管理","zh-TW":"選單管理","en":"Menu Management"}}]},
+  {"id":"tenant-management","type":"menu","icon":"Network","label":{"zh":"租户管理","zh-TW":"租戶管理","en":"Tenant Management"}},
+  {"id":"basic-tools","type":"directory","icon":"FileText","label":{"zh":"基础工具","zh-TW":"基礎工具","en":"Basic Tools"},"children":[{"id":"file-management","type":"menu","icon":"FileText","label":{"zh":"文件管理","zh-TW":"檔案管理","en":"File Management"}}]},
+  {"id":"system-operations","type":"directory","icon":"Settings2","label":{"zh":"系统运维","zh-TW":"系統維運","en":"System Operations"},"children":[
+    {"id":"website-configuration","type":"menu","icon":"Globe2","label":{"zh":"网站配置","zh-TW":"網站設定","en":"Website Configuration"}},
+    {"id":"dictionary-tools","type":"menu","icon":"BookOpen","label":{"zh":"字典工具","zh-TW":"字典工具","en":"Dictionary Tools"}},
+    {"id":"log-audit","type":"directory","icon":"Activity","label":{"zh":"日志审计","zh-TW":"日誌稽核","en":"Log Audit"},"children":[{"id":"login-logs","type":"menu","icon":"FileText","label":{"zh":"登录日志","zh-TW":"登入日誌","en":"Login Logs"}}]},
+    {"id":"login-configuration","type":"menu","icon":"KeyRound","label":{"zh":"登录配置","zh-TW":"登入設定","en":"Login Configuration"}}
+  ]}
 ]
