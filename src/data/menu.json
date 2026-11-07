@@ -1,0 +1,21 @@
+[
+  {"id":"overview","icon":"LayoutDashboard","label":{"zh":"总览","zh-TW":"總覽","en":"Overview"}},
+  {
+    "id":"people","icon":"Users","label":{"zh":"人员","zh-TW":"人員","en":"People"},
+    "children":[
+      {"id":"people-group","label":{"zh":"组织与人员","zh-TW":"組織與人員","en":"ORGANIZATION & PEOPLE"},"children":[
+        {"id":"dashboard","icon":"LayoutDashboard","label":{"zh":"工作台","zh-TW":"工作台","en":"Dashboard"}},
+        {"id":"employees","icon":"Users","label":{"zh":"员工管理","zh-TW":"員工管理","en":"Employees"}},
+        {"id":"organization","icon":"Building2","label":{"zh":"组织架构","zh-TW":"組織架構","en":"Organization"}}
+      ]},
+      {"id":"workforce-group","label":{"zh":"人事运营","zh-TW":"人事營運","en":"WORKFORCE"},"children":[
+        {"id":"attendance","icon":"Clock3","label":{"zh":"考勤与假勤","zh-TW":"考勤與假勤","en":"Attendance"}},
+        {"id":"payroll","icon":"FileText","label":{"zh":"薪酬管理","zh-TW":"薪酬管理","en":"Payroll"}}
+      ]}
+    ]
+  },
+  {"id":"organization-module","icon":"Network","label":{"zh":"组织","zh-TW":"組織","en":"Organization"}},
+  {"id":"attendance-module","icon":"Clock3","label":{"zh":"考勤","zh-TW":"考勤","en":"Time"}},
+  {"id":"payroll-module","icon":"Activity","label":{"zh":"薪酬","zh-TW":"薪酬","en":"Payroll"}},
+  {"id":"system","icon":"Settings2","label":{"zh":"系统","zh-TW":"系統","en":"System"}}
+]
