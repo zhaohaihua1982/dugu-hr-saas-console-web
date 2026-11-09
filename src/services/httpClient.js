@@ -21,7 +21,9 @@ export async function request(url, options = {}) {
   try {
     const response = await fetch(url, { ...options, headers, signal: controller.signal, body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body })
     const payload = await parseResponse(response)
-    if (!response.ok) throw new ApiError(payload?.message || payload?.error || `Request failed: ${response.status}`, response.status, payload)
+    if (!response.ok || (payload && typeof payload === 'object' && payload.status !== undefined && payload.status !== 200)) {
+      throw new ApiError(payload?.msg || payload?.message || payload?.error || `Request failed: ${response.status}`, payload?.status || response.status, payload)
+    }
     return payload?.data ?? payload
   } catch (error) {
     if (error.name === 'AbortError') throw new ApiError('请求超时，请稍后重试')

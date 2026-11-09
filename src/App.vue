@@ -7,11 +7,14 @@ import API_ENDPOINTS from './config/api'
 import { authService } from './services/authService'
 import { request } from './services/httpClient'
 
-const loggedIn = ref(localStorage.getItem('dugu-authenticated') === 'true')
+const loggedIn = ref(Boolean(localStorage.getItem('dugu-access-token')))
+const sessionChecking = ref(Boolean(localStorage.getItem('dugu-access-token')))
 const mode = ref('account')
 const lang = ref(localStorage.getItem('dugu-language') || 'zh')
 const theme = ref(localStorage.getItem('dugu-theme') || 'ocean')
 const loading = ref(false)
+const smsSending = ref(false)
+const smsCountdown = ref(0)
 const mobile = ref(false)
 const languageOpen = ref(false)
 const accountOpen = ref(false)
@@ -27,7 +30,7 @@ const captchaInput = ref('')
 const captchaCode = ref('')
 const captchaId = ref('')
 const captchaImage = ref('')
-const useMock = import.meta.env.VITE_USE_MOCK !== 'false'
+const useMock = import.meta.env.VITE_USE_MOCK === 'true'
 const userKeyword = ref('')
 const userStatus = ref('all')
 const userModalOpen = ref(false)
@@ -64,8 +67,31 @@ const flattenMenu = items => items.flatMap(item => [
 const nav = computed(() => flattenMenu(menuData))
 const activeLabel = computed(() => nav.value.find(item => item.k === active.value)?.label || '')
 
-async function refreshCaptcha() { if (useMock) { captchaCode.value = Math.random().toString(36).slice(2, 6).toUpperCase(); captchaImage.value = ''; return } try { const data = await request(API_ENDPOINTS.auth.captcha); captchaId.value = data?.captchaId || data?.id || ''; captchaImage.value = data?.image || data?.imageBase64 || data?.captchaImage || (typeof data === 'string' && (data.startsWith('data:') || data.startsWith('http')) ? data : ''); captchaCode.value = data?.code || data?.captcha || data?.captchaCode || (typeof data === 'string' && !captchaImage.value ? data : '') } catch (error) { message.error(error.message) } }
-async function submit() { if (mode.value === 'account' && (!form.value.account || !form.value.password || !captchaInput.value)) return message.warning(lang.value === 'en' ? 'Please complete account, password and captcha' : '请填写账号、密码和验证码'); if (mode.value === 'sms' && (!form.value.phone || !form.value.code)) return message.warning(lang.value === 'en' ? 'Please complete your login details' : '请完整填写登录信息'); if (mode.value === 'account' && captchaInput.value.toUpperCase() !== captchaCode.value) { refreshCaptcha(); captchaInput.value = ''; return message.error(lang.value === 'en' ? 'Invalid captcha' : '验证码错误') } loading.value = true; try { if (!useMock && mode.value === 'account') await authService.passwordLogin({ identifier: form.value.account, password: form.value.password, captcha_token: captchaInput.value }); if (!useMock && mode.value === 'sms') await authService.smsLogin({ mobile: form.value.phone, code: form.value.code }); loggedIn.value = true; localStorage.setItem('dugu-authenticated', 'true') } catch (error) { message.error(error.message); refreshCaptcha() } finally { loading.value = false } }
+async function refreshCaptcha() { if (useMock) { captchaCode.value = Math.floor(10000 + Math.random() * 90000).toString(); captchaImage.value = ''; return } try { const data = await request(API_ENDPOINTS.auth.captcha, { method: 'POST' }); captchaId.value = data?.captcha_id || ''; captchaImage.value = data?.image || ''; captchaCode.value = '' } catch (error) { message.error(error.message) } }
+async function submit() {
+  if (mode.value === 'account' && (!form.value.account || !form.value.password || !captchaInput.value)) return message.warning(lang.value === 'en' ? 'Please complete account, password and captcha' : '请填写账号、密码和验证码')
+  if (mode.value === 'sms' && (!form.value.phone || !form.value.code)) return message.warning(lang.value === 'en' ? 'Please complete your login details' : '请完整填写登录信息')
+  loading.value = true
+  try {
+    if (mode.value === 'account') await authService.passwordLogin({ identifier: form.value.account.trim(), password: form.value.password, captcha_id: captchaId.value, captcha_code: captchaInput.value.trim() })
+    else await authService.smsLogin({ mobile: form.value.phone.trim(), code: form.value.code.trim() })
+    loggedIn.value = true
+    localStorage.setItem('dugu-authenticated', 'true')
+  } catch (error) { message.error(error.message); if (mode.value === 'account') { captchaInput.value = ''; await refreshCaptcha() } }
+  finally { loading.value = false }
+}
+async function sendSmsCode() {
+  if (!form.value.phone || !captchaInput.value) return message.warning(lang.value === 'en' ? 'Please enter your phone number and captcha' : '请填写手机号和图形验证码')
+  smsSending.value = true
+  try {
+    await authService.sendSms({ mobile: form.value.phone.trim(), captcha_id: captchaId.value, captcha_code: captchaInput.value.trim() })
+    message.success(lang.value === 'en' ? 'Verification code sent' : '验证码已发送')
+    smsCountdown.value = 60
+    const tick = () => { window.setTimeout(() => { smsCountdown.value -= 1; if (smsCountdown.value > 0) tick() }, 1000) }
+    tick()
+  } catch (error) { message.error(error.message) }
+  finally { smsSending.value = false; captchaInput.value = ''; await refreshCaptcha() }
+}
 function openTab(key) { if (!nav.value.some(item => item.k === key)) return; active.value = key; if (!openTabs.value.includes(key)) openTabs.value.push(key); mobile.value = false }
 function selectModule(item) { activeModule.value = item.id; if (item.type === 'directory') sectionCollapsed.value = false; else openTab(item.id) }
 function handleMenuItem(item) { if (item.type === 'menu') openTab(item.id); else toggleDirectory(item.id) }
@@ -75,7 +101,7 @@ function closeOthers(key) { openTabs.value = [key]; active.value = key; tabMenuK
 function closeAll() { openTabs.value = []; active.value = ''; tabMenuKey.value = null }
 function selectTab(key) { active.value = key; tabMoreOpen.value = false }
 function setLanguage(value) { lang.value = value; languageOpen.value = false }
-function logout() { localStorage.removeItem('dugu-authenticated'); loggedIn.value = false; form.value.password = ''; form.value.code = '' }
+async function logout() { try { await authService.logout() } finally { localStorage.removeItem('dugu-authenticated'); loggedIn.value = false; form.value.password = ''; form.value.code = ''; await refreshCaptcha() } }
 function copyText(value) { navigator.clipboard?.writeText(value); message.success(lang.value === 'en' ? 'Copied' : '已复制') }
 function openUserModal(user = null) { userEditingId.value = user?.id || null; userForm.value = user ? { name: user.name, username: user.username, mobile: user.mobile.replace(/\*/g, ''), email: user.email, status: user.status } : { name: '', username: '', mobile: '', email: '', status: 1 }; userModalOpen.value = true }
 function saveUser() { if (!userForm.value.name || !userForm.value.username || !userForm.value.mobile) return message.warning('请填写姓名、账号和手机号'); if (userEditingId.value) { const index = users.value.findIndex(user => user.id === userEditingId.value); users.value[index] = { ...users.value[index], ...userForm.value, mobile: userForm.value.mobile.length > 8 ? `${userForm.value.mobile.slice(0, 3)}****${userForm.value.mobile.slice(-4)}` : userForm.value.mobile }; message.success('用户信息已更新') } else { users.value.unshift({ id: Date.now(), ...userForm.value, mobile: `${userForm.value.mobile.slice(0, 3)}****${userForm.value.mobile.slice(-4)}`, lastLogin: '-', ip: '-' }); message.success('用户已创建') } userModalOpen.value = false }
@@ -93,18 +119,46 @@ onMounted(() => { document.querySelector('.user-table-wrap')?.addEventListener('
 watch(lang, value => localStorage.setItem('dugu-language', value))
 watch(theme, value => localStorage.setItem('dugu-theme', value))
 watch(loggedIn, value => { if (!value) localStorage.removeItem('dugu-authenticated') })
-refreshCaptcha()
+onMounted(async () => {
+  if (loggedIn.value) {
+    try { await authService.currentUser() }
+    catch { try { await authService.logout() } catch { /* token is cleared by logout finally */ } loggedIn.value = false }
+    finally { sessionChecking.value = false }
+  } else { sessionChecking.value = false; await refreshCaptcha() }
+})
 </script>
 
 <template>
-  <main v-if="!loggedIn" :class="['login-page', theme]">
+  <main v-if="sessionChecking" class="session-loading" aria-label="正在恢复登录状态"/>
+  <main v-else-if="!loggedIn" :class="['login-page', theme]">
     <section class="login-shell">
       <div class="brand-panel"><div class="brand-lockup"><div class="brand-mark"><i/><i/><i/></div><b>独孤</b></div><div class="brand-copy"><small>DUGU · PEOPLE OS</small><h1>让每一位<br><em>人才</em> 都被看见</h1><p>连接组织、人才与业务，<br>让人事管理回归简单。</p></div><div class="brand-features"><span><ShieldCheck :size="15"/> 数据安全</span><span><Users :size="15"/> 智能协同</span></div></div>
-      <section class="login-panel"><div class="login-tools"><label><Globe2 :size="15"/><select v-model="lang"><option v-for="item in languages" :key="item.value" :value="item.value">{{ item.label }}</option></select></label><label><Palette :size="15"/><select v-model="theme"><option v-for="item in themes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label></div><div class="login-card"><div class="heading"><div><small>WELCOME BACK</small><h2>{{ t.welcome }}</h2><p>{{ t.hint }}</p></div><CircleHelp :size="19"/></div><div class="tabs"><button :class="{ active: mode === 'account' }" @click="mode = 'account'">{{ t.account }}</button><button :class="{ active: mode === 'sms' }" @click="mode = 'sms'">{{ t.sms }}</button></div><form @submit.prevent="submit"><template v-if="mode === 'account'"><label>{{ t.accountLabel }}</label><a-input v-model:value="form.account" size="large" placeholder="admin@dugu.com"><template #prefix><Mail :size="16"/></template></a-input><div class="label-row"><label>{{ t.password }}</label><button type="button">{{ t.forgot }}</button></div><a-input-password v-model:value="form.password" size="large" placeholder="••••••••"><template #prefix><ShieldCheck :size="16"/></template></a-input-password></template><template v-else><label>{{ t.phone }}</label><a-input v-model:value="form.phone" size="large"><template #prefix><Phone :size="16"/></template></a-input><label>{{ t.code }}</label><a-input v-model:value="form.code" size="large"><template #prefix><ShieldCheck :size="16"/></template><template #suffix><button type="button">{{ t.getCode }}</button></template></a-input></template><a-button html-type="submit" type="primary" block size="large" :loading="loading" class="submit">{{ t.login }}</a-button></form></div><footer>© 2024 独孤科技有限公司 <span>浙ICP备2024012345号</span></footer></section>
+      <section class="login-panel">
+        <div class="login-tools"><label><Globe2 :size="15"/><select v-model="lang"><option v-for="item in languages" :key="item.value" :value="item.value">{{ item.label }}</option></select></label><label><Palette :size="15"/><select v-model="theme"><option v-for="item in themes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label></div>
+        <div class="login-card">
+          <div class="heading"><div><small>WELCOME BACK</small><h2>{{ t.welcome }}</h2><p>{{ t.hint }}</p></div></div>
+          <div class="tabs"><button :class="{ active: mode === 'account' }" @click="mode = 'account'">{{ t.account }}</button><button :class="{ active: mode === 'sms' }" @click="mode = 'sms'">{{ t.sms }}</button></div>
+          <form @submit.prevent="submit">
+            <template v-if="mode === 'account'">
+              <label>{{ t.accountLabel }}</label>
+              <a-input v-model:value="form.account" size="large" placeholder="admin@dugu.com"><template #prefix><Mail :size="16"/></template></a-input>
+              <label>{{ t.password }}</label>
+              <a-input-password v-model:value="form.password" size="large" placeholder="••••••••"><template #prefix><ShieldCheck :size="16"/></template></a-input-password>
+              <label>验证码</label>
+              <div class="captcha-row"><a-input v-model:value="captchaInput" size="large" maxlength="5" inputmode="numeric" placeholder="请输入验证码"/><button type="button" class="captcha-image" @click="refreshCaptcha"><img v-if="captchaImage" :src="captchaImage" alt="验证码"/><span v-else>{{ captchaCode }}</span></button></div>
+            </template>
+            <template v-else>
+              <label>{{ t.phone }}</label><a-input v-model:value="form.phone" size="large"><template #prefix><Phone :size="16"/></template></a-input>
+              <label>图形验证码</label><div class="captcha-row"><a-input v-model:value="captchaInput" size="large" maxlength="5" inputmode="numeric" placeholder="请输入验证码"/><button type="button" class="captcha-image" @click="refreshCaptcha"><img v-if="captchaImage" :src="captchaImage" alt="验证码"/><span v-else>{{ captchaCode }}</span></button></div>
+              <label>{{ t.code }}</label><a-input v-model:value="form.code" size="large" maxlength="6" inputmode="numeric"><template #prefix><ShieldCheck :size="16"/></template><template #suffix><button type="button" :disabled="smsSending || smsCountdown > 0" @click="sendSmsCode">{{ smsCountdown > 0 ? `${smsCountdown}s` : t.getCode }}</button></template></a-input>
+            </template>
+            <a-button html-type="submit" type="primary" block size="large" :loading="loading" class="submit">{{ t.login }}</a-button>
+          </form>
+        </div>
+        <footer>© 2024 独孤科技有限公司 <span>浙ICP备2024012345号</span></footer>
+      </section>
     </section>
   </main>
-
-  <div v-if="!loggedIn && mode === 'account'" class="captcha-fallback"><label>验证码</label><div class="captcha-row"><a-input v-model:value="captchaInput" size="large" maxlength="4" placeholder="请输入验证码"/><button type="button" class="captcha-image" @click="refreshCaptcha"><img v-if="captchaImage" :src="captchaImage" alt="验证码"/><span v-else>{{ captchaCode }}</span></button></div></div>
 
   <main v-else :class="['admin-shell', `theme-${theme}`]">
     <header class="topbar">
