@@ -18,6 +18,5 @@ export default defineConfig(({ mode }) => {
       port: Number(env.VITE_PREVIEW_PORT || env.VITE_PORT || 4173),
       strictPort: env.VITE_STRICT_PORT === 'true',
     },
-    define: { __APP_ENV__: JSON.stringify(mode), __API_BASE_URL__: JSON.stringify(env.VITE_API_BASE_URL || '/api') },
   }
 })

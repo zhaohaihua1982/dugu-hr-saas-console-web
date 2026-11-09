@@ -1,0 +1,8 @@
+export default {
+  common: { confirm: '確定', cancel: '取消', save: '儲存', refresh: '重新整理', search: '查詢', reset: '重設', edit: '編輯', disable: '停用', enable: '啟用', unlock: '解鎖', operation: '操作', status: '狀態', interfacePending: '介面待後端實作', logout: '登出', closeCurrent: '關閉目前', closeOthers: '關閉其他', closeAll: '關閉全部' },
+  login: { title: '歡迎回來', subtitle: '登入獨孤人事管理系統，開始今天的工作', passwordTab: '帳號密碼', smsTab: '手機簡訊', account: '帳號', password: '密碼', mobile: '手機號碼', captcha: '圖形驗證碼', smsCode: '簡訊驗證碼', getCode: '取得驗證碼', sent: '驗證碼已傳送', submit: '登入', fillRequired: '請完整填寫登入資訊', slogan: '讓每一位人才都被看見', sloganDesc: '連接組織、人才與業務，讓人事管理回歸簡單。', security: '資料安全', collaboration: '智慧協作', company: '© 2024 獨孤科技有限公司', record: '浙ICP備2024012345號' },
+  layout: { product: '獨孤雲', brandShort: '獨孤', help: '幫助中心', language: '語言', theme: '風格', light: '明亮', dark: '暗黑', brandBlue: '品牌藍', welcome: '工作台' },
+  menu: { organization: '組織管理', user: '使用者管理', permission: '權限管控', menu: '選單管理', tenant: '租戶管理', tenantList: '租戶列表', tools: '基礎工具', file: '檔案管理', operations: '系統維運', siteConfig: '網站設定', loginConfig: '登入設定', dictionary: '字典工具', loginLog: '登入日誌' },
+  user: { title: '管理帳號', add: '新增管理帳號', name: '姓名', username: '帳號', mobile: '手機號碼', mobileKeep: '留空則保留原手機號碼', email: '電子郵件', password: '密碼', createdAt: '建立時間', allStatus: '全部狀態', active: '正常', disabled: '停用', locked: '鎖定', resetPassword: '重設密碼', newPassword: '新密碼', passwordHint: '至少 10 位，並包含兩類字元', createSuccess: '帳號建立成功', updateSuccess: '帳號更新成功', disableSuccess: '帳號已停用', unlockSuccess: '帳號已解鎖', resetSuccess: '密碼已重設' },
+  loginLog: { identifier: '登入標識', type: '登入方式', result: '結果', success: '成功', failed: '失敗', reason: '失敗原因', ip: 'IP 位址', time: '登入時間' }
+}

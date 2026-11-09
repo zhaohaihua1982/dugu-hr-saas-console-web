@@ -1,0 +1,8 @@
+export default {
+  common: { confirm: '确定', cancel: '取消', save: '保存', refresh: '刷新', search: '查询', reset: '重置', edit: '编辑', disable: '停用', enable: '启用', unlock: '解锁', delete: '删除', operation: '操作', status: '状态', interfacePending: '接口待后端实现', logout: '退出登录', closeCurrent: '关闭当前', closeOthers: '关闭其他', closeAll: '关闭所有' },
+  login: { title: '欢迎回来', subtitle: '登录独孤人事管理系统，开始今天的工作', passwordTab: '账号密码', smsTab: '手机短信', account: '账号', password: '密码', mobile: '手机号', captcha: '图形验证码', smsCode: '短信验证码', getCode: '获取验证码', sent: '验证码已发送', submit: '登录', fillRequired: '请完整填写登录信息', slogan: '让每一位人才都被看见', sloganDesc: '连接组织、人才与业务，让人事管理回归简单。', security: '数据安全', collaboration: '智能协同', company: '© 2024 独孤科技有限公司', record: '浙ICP备2024012345号' },
+  layout: { product: '独孤云', brandShort: '独孤', help: '帮助中心', language: '语言', theme: '风格', light: '明亮', dark: '暗黑', brandBlue: '品牌蓝', welcome: '工作台' },
+  menu: { organization: '组织管理', user: '用户管理', permission: '权限管控', menu: '菜单管理', tenant: '租户管理', tenantList: '租户列表', tools: '基础工具', file: '文件管理', operations: '系统运维', siteConfig: '网站配置', loginConfig: '登录配置', dictionary: '字典工具', loginLog: '登录日志' },
+  user: { title: '管理账号', add: '新增管理账号', name: '姓名', username: '账号', mobile: '手机号', mobileKeep: '留空则保持原手机号', email: '邮箱', password: '密码', createdAt: '创建时间', allStatus: '全部状态', active: '正常', disabled: '停用', locked: '锁定', resetPassword: '重置密码', newPassword: '新密码', passwordHint: '至少 10 位，并包含两类字符', createSuccess: '账号创建成功', updateSuccess: '账号更新成功', disableSuccess: '账号已停用', unlockSuccess: '账号已解锁', resetSuccess: '密码已重置' },
+  loginLog: { identifier: '登录标识', type: '登录方式', result: '结果', success: '成功', failed: '失败', reason: '失败原因', ip: 'IP 地址', time: '登录时间' }
+}
