@@ -2,6 +2,10 @@ import axios, { AxiosError, type AxiosResponse } from 'axios'
 import { message } from 'ant-design-vue'
 import { TOKEN_KEY } from '../store/modules/auth'
 
+declare module 'axios' {
+  interface AxiosRequestConfig { silentError?: boolean }
+}
+
 interface ApiEnvelope<T> { status: number; msg: string; data: T }
 export class ApiError extends Error {
   constructor(messageText: string, public status = 0, public payload: unknown = null) { super(messageText); this.name = 'ApiError' }
@@ -38,12 +42,12 @@ http.interceptors.response.use(((response: AxiosResponse<ApiEnvelope<unknown>>) 
   const error = new ApiError(payload.msg || 'Request failed', payload.status, payload)
   if (payload.status === 30001 || payload.status === 30002) {
     localStorage.removeItem(TOKEN_KEY)
-    if (!redirecting) { redirecting = true; window.setTimeout(() => { window.location.replace('/login') }, 0) }
-  } else message.error(error.message)
+    if (!redirecting) { redirecting = true; window.setTimeout(() => { window.location.replace(`${import.meta.env.BASE_URL}login`) }, 0) }
+  } else if (!response.config.silentError) message.error(error.message)
   return Promise.reject(error)
 }) as never, (error: AxiosError<{ msg?: string }>) => {
   const apiError = new ApiError(error.code === 'ECONNABORTED' ? localMessage('timeout') : error.response?.data?.msg || localMessage('network'), error.response?.status || 0, error.response?.data)
-  message.error(apiError.message)
+  if (!error.config?.silentError) message.error(apiError.message)
   return Promise.reject(apiError)
 })
 

@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { routes } from './routes'
 import { TOKEN_KEY } from '../store/modules/auth'
 
-export const router = createRouter({ history: createWebHistory(), routes })
+export const router = createRouter({ history: createWebHistory(import.meta.env.BASE_URL), routes })
 router.beforeEach((to) => {
   const hasToken = Boolean(localStorage.getItem(TOKEN_KEY))
   if (!hasToken && to.path !== '/login') return { path: '/login', query: { redirect: to.fullPath } }
@@ -10,4 +10,4 @@ router.beforeEach((to) => {
   return true
 })
 
-declare module 'vue-router' { interface RouteMeta { title: string; group?: string; icon?: string; hidden?: boolean; sort?: number } }
+declare module 'vue-router' { interface RouteMeta { title: string; group?: string; parent?: string; icon?: string; hidden?: boolean; sort?: number } }

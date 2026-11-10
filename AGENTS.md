@@ -35,6 +35,56 @@
 | 包管理 | **npm**（保持现状） | 不换 pnpm，不改 lock 文件策略 |
 | 明确不引入 | tailwind / unocss、MSW/mock、标签页缓存 | 多语言与主题是**必须做**的一等能力，不在不引入之列；其余为降低重构风险 |
 
+### 3.1 语言包格式规范（新增模块必读，以 file 模块为例）
+
+**目录格式（保持现状，不要改）**：
+
+```
+src/locales/
+├── index.ts        # createI18n 聚合，fallbackLocale: 'zh-CN'，LOCALE_KEY = 'dugu-lang'
+├── zh-CN.ts        # 全量
+├── zh-TW.ts        # key 集合必须与 zh-CN 一致，值允许暂留中文并标 // TODO 翻译
+└── en-US.ts        # 同上
+```
+
+- 顶层命名空间 = 模块名（camelCase），与 `src/views/` 模块目录同名（`file`、`import`、`dict`...）；
+- **不按模块拆分 JSON 文件**；单文件超过 300 行才允许拆成 `locales/<lang>/` 下多文件再由 index 聚合，**key 结构保持不变**（拆分只是物理手段，`$t` 的 key 不得因此改变）。
+
+**key 三层规则**：`模块.语境.词条`
+
+1. UI 文案用描述性 camelCase（`upload.button`、`delete.purgeConfirm`），插值用命名参数 `{total}`；
+2. **枚举文案域固定 `xxxOptions` 后缀，且其 key 必须逐字等于后端返回的 code，禁止增删改名**。对照来源：
+
+| Options 域 | key 来源（= 后端 code） |
+|---|---|
+| `file.bizOptions` | `domain/file.Biz` 七个常量（avatar/resume/contract/import/export/site/temp） |
+| `file.driverOptions` | yaml `storage.driver`（local/oss/minio） |
+| `file.statusOptions` | 派生态（normal/trashed/purged），非库字段 |
+| `file.importStatusOptions` | `sys_import_batch.status`（parsed/validated/failed/imported） |
+
+3. 枚举渲染统一程序化拼接：`` $t(`file.bizOptions.${row.biz}`) ``；封装 `tEnum(namespace, domain, code)` helper，**查不到词条时回退显示 code 本身**（不显示裸 key，也便于发现"新枚举没配翻译"）。
+
+**例外**：`import_type`（导入业务域）值域开放、文案走后端字典（`sys_dict`），**禁止**在语言包里写死其枚举——前端字典下拉组件统一按 `type_code=import_type` 拉取 label。
+
+**错误提示不进语言包**：后端错误 `msg` 已按请求 lang 返回，拦截器直接展示；语言包只管界面文案。
+
+file 命名空间参考骨架（词条按实际页面增补，Options 四域的 key 集合不得增删）：
+
+```ts
+file: {
+  // —— 页面文案（按实际页面增补）——
+  title: '文件管理',
+  upload: { button: '上传文件', success: '上传成功', tooLarge: '单个文件不能超过 {limit}MB', typeNotAllowed: '不支持的文件类型' },
+  list: { fileName: '文件名', biz: '用途', size: '大小', driver: '存储位置', uploader: '上传人', createdAt: '上传时间', status: '状态', action: '操作' },
+  del: { softConfirm: '删除后将在回收站保留 30 天，确定删除？', restore: '恢复', batchDelete: '批量删除', purge: '彻底删除', purgeConfirm: '彻底删除后不可恢复，确定继续？', purgeDenied: '仅超级管理员可彻底删除', refInUse: '文件仍被业务引用，无法删除', notInTrash: '文件不在回收站，无法恢复' },
+  // —— 枚举文案（key = 后端 code，逐字对应，禁止增删）——
+  bizOptions: { avatar: '头像', resume: '简历', contract: '合同/证明', import: '导入源文件', export: '导出结果', site: '站点资源', temp: '临时文件' },
+  driverOptions: { local: '本地存储', oss: '阿里云 OSS', minio: 'MinIO' },
+  statusOptions: { normal: '正常', trashed: '回收站', purged: '已清除' },
+  importStatusOptions: { parsed: '已解析', validated: '校验通过', failed: '校验失败', imported: '已导入' },
+}
+```
+
 ## 4. 请求层规范
 
 - 目录：`src/api/` 按后端模块分文件（`auth.ts`、`sysuser.ts`、`menu.ts`、`config.ts`、`dict.ts`、`loginlog.ts`），URL 端点集中在 `src/api/endpoints.ts`。

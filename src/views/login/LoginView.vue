@@ -3,12 +3,15 @@ import { computed, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { Globe2, Palette, Mail, Phone, ShieldCheck, Users } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../store/modules/auth'
 import { localeOptions, type AppLocale } from '../../locales'
 import { useAppStore, type AppTheme } from '../../store/modules/app'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const app = useAppStore()
 const mode = ref<'password' | 'sms'>('password')
@@ -33,7 +36,8 @@ async function submit() {
       ? await authApi.passwordLogin({ identifier: form.value.identifier.trim(), password: form.value.password, captcha_id: captcha.value.id, captcha_code: form.value.captcha.trim() })
       : await authApi.smsLogin({ mobile: form.value.mobile.trim(), code: form.value.code.trim() })
     auth.setSession(data)
-    window.location.assign('/')
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.replace(redirect)
   } finally { loading.value = false }
 }
 async function sendSms() {

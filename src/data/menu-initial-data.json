@@ -1,0 +1,239 @@
+{
+  "_meta": {
+    "initialization_only": true,
+    "runtime_mock": false,
+    "description": "Initial sys_menu tree matching src/router/routes.ts"
+  },
+  "menus": [
+    {
+      "name": "组织管理",
+      "names": { "zh-CN": "组织管理", "zh-TW": "組織管理", "en-US": "Organization" },
+      "type": 1,
+      "path": "/organization",
+      "component": "",
+      "icon": "Users",
+      "sort": 10,
+      "visible": true,
+      "status": 1,
+      "code": "org",
+      "remark": "",
+      "children": [
+        {
+          "name": "用户管理",
+          "names": { "zh-CN": "用户管理", "zh-TW": "使用者管理", "en-US": "Users" },
+          "type": 2,
+          "path": "/organization/users",
+          "component": "views/sysuser/UserListView",
+          "icon": "Users",
+          "sort": 10,
+          "visible": true,
+          "status": 1,
+          "code": "system:user:page",
+          "remark": "管理账号维护",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "权限管控",
+      "names": { "zh-CN": "权限管控", "zh-TW": "權限管控", "en-US": "Access control" },
+      "type": 1,
+      "path": "/permission",
+      "component": "",
+      "icon": "ShieldCheck",
+      "sort": 20,
+      "visible": true,
+      "status": 1,
+      "code": "permission",
+      "remark": "",
+      "children": [
+        {
+          "name": "菜单管理",
+          "names": { "zh-CN": "菜单管理", "zh-TW": "選單管理", "en-US": "Menus" },
+          "type": 2,
+          "path": "/permission/menus",
+          "component": "views/menu/MenuView",
+          "icon": "Menu",
+          "sort": 10,
+          "visible": true,
+          "status": 1,
+          "code": "system:menu:page",
+          "remark": "菜单与动作配置",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "租户管理",
+      "names": { "zh-CN": "租户管理", "zh-TW": "租戶管理", "en-US": "Tenants" },
+      "type": 1,
+      "path": "/tenant",
+      "component": "",
+      "icon": "Building2",
+      "sort": 30,
+      "visible": true,
+      "status": 1,
+      "code": "tenant",
+      "remark": "",
+      "children": [
+        {
+          "name": "租户列表",
+          "names": { "zh-CN": "租户列表", "zh-TW": "租戶列表", "en-US": "Tenant list" },
+          "type": 2,
+          "path": "/tenant/list",
+          "component": "views/tenant/TenantView",
+          "icon": "Building2",
+          "sort": 10,
+          "visible": true,
+          "status": 1,
+          "code": "system:tenant:page",
+          "remark": "",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "基础工具",
+      "names": { "zh-CN": "基础工具", "zh-TW": "基礎工具", "en-US": "Tools" },
+      "type": 1,
+      "path": "/tools",
+      "component": "",
+      "icon": "FolderOpen",
+      "sort": 40,
+      "visible": true,
+      "status": 1,
+      "code": "tools",
+      "remark": "",
+      "children": [
+        {
+          "name": "文件管理",
+          "names": { "zh-CN": "文件管理", "zh-TW": "檔案管理", "en-US": "Files" },
+          "type": 2,
+          "path": "/tools/files",
+          "component": "views/file/FileView",
+          "icon": "FolderOpen",
+          "sort": 10,
+          "visible": true,
+          "status": 1,
+          "code": "system:file:page",
+          "remark": "",
+          "children": []
+        },
+        {
+          "name": "译文管理",
+          "names": { "zh-CN": "译文管理", "zh-TW": "譯文管理", "en-US": "Translations" },
+          "type": 2,
+          "path": "/tools/i18n",
+          "component": "views/i18n/I18nView",
+          "icon": "Languages",
+          "sort": 20,
+          "visible": true,
+          "status": 1,
+          "code": "system:i18n:page",
+          "remark": "数据文案多语言维护",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "系统运维",
+      "names": { "zh-CN": "系统运维", "zh-TW": "系統維運", "en-US": "Operations" },
+      "type": 1,
+      "path": "/operations",
+      "component": "",
+      "icon": "Settings",
+      "sort": 50,
+      "visible": true,
+      "status": 1,
+      "code": "operations",
+      "remark": "",
+      "children": [
+        {
+          "name": "网站配置",
+          "names": { "zh-CN": "网站配置", "zh-TW": "網站設定", "en-US": "Site settings" },
+          "type": 2,
+          "path": "/operations/site",
+          "component": "views/config/SiteConfigView",
+          "icon": "Settings",
+          "sort": 10,
+          "visible": true,
+          "status": 1,
+          "code": "system:site-config:page",
+          "remark": "",
+          "children": []
+        },
+        {
+          "name": "登录配置",
+          "names": { "zh-CN": "登录配置", "zh-TW": "登入設定", "en-US": "Login settings" },
+          "type": 2,
+          "path": "/operations/login",
+          "component": "views/config/LoginConfigView",
+          "icon": "KeyRound",
+          "sort": 20,
+          "visible": true,
+          "status": 1,
+          "code": "system:login-config:page",
+          "remark": "",
+          "children": []
+        },
+        {
+          "name": "字典工具",
+          "names": { "zh-CN": "字典工具", "zh-TW": "字典工具", "en-US": "Dictionary" },
+          "type": 2,
+          "path": "/operations/dictionary",
+          "component": "views/dict/DictView",
+          "icon": "BookOpen",
+          "sort": 30,
+          "visible": true,
+          "status": 1,
+          "code": "system:dict:page",
+          "remark": "",
+          "children": []
+        },
+        {
+          "name": "审计日志",
+          "names": { "zh-CN": "审计日志", "zh-TW": "稽核日誌", "en-US": "Audit logs" },
+          "type": 1,
+          "path": "/operations/audit",
+          "component": "",
+          "icon": "FileText",
+          "sort": 40,
+          "visible": true,
+          "status": 1,
+          "code": "audit",
+          "remark": "",
+          "children": [
+            {
+              "name": "登录日志",
+              "names": { "zh-CN": "登录日志", "zh-TW": "登入日誌", "en-US": "Login logs" },
+              "type": 2,
+              "path": "/operations/login-logs",
+              "component": "views/loginlog/LoginLogView",
+              "icon": "FileText",
+              "sort": 10,
+              "visible": true,
+              "status": 1,
+              "code": "system:loginlog:page",
+              "remark": "",
+              "children": []
+            },
+            {
+              "name": "操作日志",
+              "names": { "zh-CN": "操作日志", "zh-TW": "操作日誌", "en-US": "Operation logs" },
+              "type": 2,
+              "path": "/operations/operation-logs",
+              "component": "views/operlog/OperationLogView",
+              "icon": "FileText",
+              "sort": 20,
+              "visible": true,
+              "status": 1,
+              "code": "system:operlog:page",
+              "remark": "",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

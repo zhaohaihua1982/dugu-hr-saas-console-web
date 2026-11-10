@@ -1,0 +1,152 @@
+{
+  "_meta": {
+    "name": "sys_menu API contract",
+    "version": "2.0",
+    "example_only": true,
+    "base_path": "/api/v1/admin",
+    "auth": "Authorization: Bearer <token>",
+    "response_envelope": { "status": 200, "msg": "操作成功", "data": "endpoint payload" },
+    "conventions": {
+      "id": "Snowflake IDs are JSON strings",
+      "parent_id": "JSON string; root uses 0",
+      "type": "1=directory, 2=menu, 3=action",
+      "visible": "boolean",
+      "status": "1=enabled, 0=disabled",
+      "children": "tree-only; leaf nodes may omit this field",
+      "sort_order": "sort ASC, then id ASC",
+      "supported_data_languages": ["zh-CN", "zh-TW", "en-US"],
+      "name_fallback": "requested translation -> sys_menu.name",
+      "localization_ownership": {
+        "server": "Configured directory, menu and action names",
+        "frontend": "Table headers, form labels, pagination, buttons and validation messages"
+      }
+    }
+  },
+  "field_contract": {
+    "id": { "type": "string", "read_only": true },
+    "parent_id": { "type": "string", "write": true, "root_value": "0" },
+    "name": { "type": "string", "max_length": 64, "required_in_create": true },
+    "names": {
+      "type": "object<string,string>",
+      "languages": ["zh-CN", "zh-TW", "en-US"],
+      "response": "detail only",
+      "update_semantics": "only supplied languages are overwritten"
+    },
+    "type": { "type": "integer", "allowed": [1, 2, 3], "required_in_create": true },
+    "path": {
+      "type": "string",
+      "max_length": 128,
+      "required_for": [1, 2, 3],
+      "action_rule": "type=3 uses the same value as code"
+    },
+    "component": { "type": "string", "max_length": 128 },
+    "icon": { "type": "string", "max_length": 64 },
+    "sort": { "type": "integer", "minimum": 0, "maximum": 9999, "default": 0 },
+    "id_path": { "type": "string", "read_only": true, "description": "root=id; child=parent_id_path/id" },
+    "visible": { "type": "boolean", "default": true },
+    "status": { "type": "integer", "allowed": [0, 1], "default": 1 },
+    "code": {
+      "type": "string",
+      "max_length": 64,
+      "required_for": [2, 3],
+      "directory_rule": "optional on create; server generates dir:<id>; cannot be cleared on update",
+      "unique_rule": "unique by (type, code, deleted_at)"
+    },
+    "remark": { "type": "string", "max_length": 255 },
+    "created_at": { "type": "string", "read_only": true, "format": "YYYY-MM-DD HH:mm:ss" },
+    "children": { "type": "array<MenuTreeNode>", "read_only": true, "tree_only": true }
+  },
+  "parent_rules": {
+    "directory": "root or directory; directory/menu depth <= 3",
+    "menu": "directory only; cannot be root",
+    "action": "directory or menu; cannot be root; always a leaf; excluded from depth"
+  },
+  "endpoints": {
+    "tree": {
+      "method": "GET",
+      "path": "/api/v1/admin/menus/tree",
+      "query": { "lang": "zh-CN | zh-TW | en-US" },
+      "response_data": [{
+        "id": "2120000000000000001",
+        "parent_id": "0",
+        "name": "权限管控",
+        "type": 1,
+        "path": "/permission",
+        "component": "",
+        "icon": "ShieldCheck",
+        "sort": 20,
+        "id_path": "2120000000000000001",
+        "visible": true,
+        "status": 1,
+        "code": "permission",
+        "remark": "",
+        "created_at": "2026-11-10 10:00:00",
+        "children": []
+      }]
+    },
+    "detail": {
+      "method": "GET",
+      "path": "/api/v1/admin/menus/{id}",
+      "response_data": {
+        "id": "2120000000000000002",
+        "parent_id": "2120000000000000001",
+        "name": "菜单管理",
+        "names": { "zh-CN": "菜单管理", "zh-TW": "選單管理", "en-US": "Menus" },
+        "type": 2,
+        "path": "/permission/menus",
+        "component": "views/menu/MenuView",
+        "icon": "Menu",
+        "sort": 10,
+        "id_path": "2120000000000000001/2120000000000000002",
+        "visible": true,
+        "status": 1,
+        "code": "system:menu:page",
+        "remark": "管理后台菜单维护",
+        "created_at": "2026-11-10 10:00:00"
+      }
+    },
+    "create": {
+      "method": "POST",
+      "path": "/api/v1/admin/menus",
+      "request": {
+        "parent_id": "2120000000000000001",
+        "name": "菜单管理",
+        "names": { "zh-CN": "菜单管理", "zh-TW": "選單管理", "en-US": "Menus" },
+        "type": 2,
+        "path": "/permission/menus",
+        "component": "views/menu/MenuView",
+        "icon": "Menu",
+        "sort": 10,
+        "visible": true,
+        "status": 1,
+        "code": "system:menu:page",
+        "remark": "管理后台菜单维护"
+      }
+    },
+    "update": {
+      "method": "PUT",
+      "path": "/api/v1/admin/menus/{id}",
+      "semantics": "partial update; omitted fields remain unchanged",
+      "request_example": { "names": { "zh-TW": "選單管理" }, "sort": 20 }
+    },
+    "delete": { "method": "DELETE", "path": "/api/v1/admin/menus/{id}", "response_data": null },
+    "sort": {
+      "method": "POST",
+      "path": "/api/v1/admin/menus/sort",
+      "request": { "items": [{ "id": "2120000000000000001", "sort": 10 }] },
+      "response_data": [
+        { "id": "2120000000000000001", "success": true },
+        { "id": "999", "success": false, "code": 30031 }
+      ]
+    }
+  },
+  "business_errors": {
+    "30031": "菜单不存在",
+    "30032": "菜单存在子节点，禁止删除或修改类型",
+    "30033": "保留的历史错误码",
+    "30034": "菜单参数不合法",
+    "30035": "语言不被支持",
+    "30036": "默认语言名称不能为空",
+    "30037": "同级名称/路径重复，或同类型 code 重复"
+  }
+}
