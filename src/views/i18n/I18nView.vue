@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { ChevronLeft, ChevronRight, RefreshCw, Save, Search, Trash2 } from 'lucide-vue-next'
+import { Languages, RefreshCw, Search, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { ApiError } from '../../utils/http'
+import AppPagination from '../../components/AppPagination.vue'
+import { menuApi, type MenuItem } from '../../api/menu'
+import { useAppStore } from '../../store/modules/app'
+import { toServerMenuLocale } from '../../locales'
 import {
   i18nApi,
   type I18nDeleteItem,
@@ -11,10 +16,13 @@ import {
   type I18nPendingItem,
   type I18nResourceType,
   type I18nTexts,
+  type I18nTextsList,
 } from '../../api/i18n'
 
 interface TranslationRow {
   key: string
+  resId: string
+  resourceKey: string
   field: string
   lang: string
   source: string
@@ -22,57 +30,88 @@ interface TranslationRow {
 }
 
 const { t } = useI18n()
+const route = useRoute()
+const app = useAppStore()
 const activeView = ref('resource')
 const resourceType = ref<I18nResourceType>('menu')
 const resourceId = ref('')
 const meta = ref<I18nMeta | null>(null)
 const detail = ref<I18nTexts | null>(null)
+const textList = ref<I18nTextsList | null>(null)
 const loadingMeta = ref(false)
 const loadingDetail = ref(false)
-const savingKey = ref('')
 const deletingKey = ref('')
 const batchDeleting = ref(false)
 const apiUnavailable = ref(false)
 const selectedRowKeys = ref<string[]>([])
-const drafts = reactive<Record<string, string>>({})
+const listPage = ref(1)
+const listLimit = ref(20)
+const editorOpen = ref(false)
+const editorLoading = ref(false)
+const editorSaving = ref(false)
+const editorResourceId = ref('')
+const editorField = ref('')
+const editorSource = ref('')
+const editorDrafts = reactive<Record<string, string>>({})
+const resourceNames = ref<Record<string, string>>({})
 
 const pendingLang = ref('')
 const pendingItems = ref<I18nPendingItem[]>([])
-const pendingDrafts = reactive<Record<string, string>>({})
 const pendingLoading = ref(false)
-const pendingSavingKey = ref('')
-const cursorHistory = ref<string[]>(['0'])
+const pendingPage = ref(1)
 const pendingLimit = ref(20)
-const nextAfterId = ref('')
-const serverHasMore = ref<boolean | null>(null)
+const pendingTotal = ref(0)
 
 const resourceOptions = computed(() => [
   { value: 'menu' as const, label: t('i18nData.resourceMenu') },
   { value: 'dict_item' as const, label: t('i18nData.resourceDictItem') },
 ])
 const availableLangs = computed(() => (meta.value?.langs || []).filter(lang => lang !== meta.value?.defaultLang))
+const validResourceId = computed(() => /^[1-9]\d*$/.test(resourceId.value.trim()))
+const resourceIdFilterValid = computed(() => !resourceId.value.trim() || validResourceId.value)
+const listMode = computed(() => !detail.value)
 const translationRows = computed<TranslationRow[]>(() => {
-  if (!detail.value) return []
-  return Object.keys(detail.value.defaultValue).flatMap(field => availableLangs.value.map(lang => {
-    const key = `${field}:${lang}`
+  if (detail.value) return Object.keys(detail.value.defaultValue).flatMap(field => availableLangs.value.map(lang => {
+    const key = `${detail.value?.resId}:${field}:${lang}`
     return {
       key,
+      resId: detail.value?.resId || '',
+      resourceKey: '',
       field,
       lang,
       source: detail.value?.defaultValue[field] || '',
       content: detail.value?.texts[field]?.[lang] || '',
     }
   }))
+  if (!textList.value) return []
+  return textList.value.items.map(item => {
+    const texts = parseStoredTexts(item.texts)
+    return {
+      key: `${item.res_id}:${item.field}`,
+      resId: item.res_id,
+      resourceKey: resourceNames.value[item.res_id] || item.res_id,
+      field: item.field,
+      lang: '',
+      source: '',
+      content: Object.values(texts).find(value => typeof value === 'string' && value.trim()) || '',
+    }
+  })
 })
 const canBatchDelete = computed(() => selectedRowKeys.value.length > 0 && !apiUnavailable.value)
-const currentCursor = computed(() => cursorHistory.value[cursorHistory.value.length - 1] || '0')
-const hasPrevious = computed(() => cursorHistory.value.length > 1)
-const hasNext = computed(() => serverHasMore.value ?? pendingItems.value.length >= pendingLimit.value)
 
 function languageLabel(lang: string) {
   const key = `i18nData.languages.${lang}`
   const label = t(key)
   return label === key ? lang : label
+}
+
+function parseStoredTexts(value: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
 }
 
 function pendingRowKey(record: I18nPendingItem) {
@@ -81,16 +120,15 @@ function pendingRowKey(record: I18nPendingItem) {
 
 function resetDetail() {
   detail.value = null
+  textList.value = null
   selectedRowKeys.value = []
-  Object.keys(drafts).forEach(key => delete drafts[key])
+  listPage.value = 1
 }
 
 function resetPending() {
   pendingItems.value = []
-  cursorHistory.value = ['0']
-  nextAfterId.value = ''
-  serverHasMore.value = null
-  Object.keys(pendingDrafts).forEach(key => delete pendingDrafts[key])
+  pendingPage.value = 1
+  pendingTotal.value = 0
 }
 
 async function loadMeta() {
@@ -99,9 +137,11 @@ async function loadMeta() {
   resetPending()
   try {
     meta.value = await i18nApi.meta(resourceType.value, true)
+    await loadResourceNames()
     apiUnavailable.value = false
     const langs = availableLangs.value
     if (!langs.includes(pendingLang.value)) pendingLang.value = langs[0] || ''
+    await queryTexts(true)
   } catch (error) {
     meta.value = null
     apiUnavailable.value = error instanceof ApiError && error.status === 404
@@ -111,46 +151,78 @@ async function loadMeta() {
   }
 }
 
-async function queryDetail() {
-  const id = resourceId.value.trim()
-  if (!/^\d+$/.test(id) || id === '0') {
-    message.warning(t('i18nData.resourceIdRequired'))
-    return
+async function loadResourceNames() {
+  resourceNames.value = {}
+  if (resourceType.value !== 'menu') return
+  try {
+    const tree = await menuApi.tree(toServerMenuLocale(app.locale), true)
+    const visit = (items: MenuItem[]) => items.forEach(item => {
+      resourceNames.value[item.id] = item.name
+      visit(item.children || [])
+    })
+    visit(Array.isArray(tree) ? tree : [])
+  } catch {
+    resourceNames.value = {}
   }
+}
+
+async function queryTexts(reset = false) {
+  const id = resourceId.value.trim()
+  if (!resourceIdFilterValid.value) return
+  if (reset) listPage.value = 1
   loadingDetail.value = true
   try {
-    const data = await i18nApi.texts(resourceType.value, id)
-    detail.value = data
+    if (id) {
+      detail.value = await i18nApi.texts(resourceType.value, id)
+      textList.value = null
+    } else {
+      detail.value = null
+      textList.value = await i18nApi.textsList(resourceType.value, listPage.value, listLimit.value)
+      listPage.value = textList.value.page
+      listLimit.value = textList.value.page_size
+    }
     selectedRowKeys.value = []
-    Object.keys(drafts).forEach(key => delete drafts[key])
-    translationRows.value.forEach(row => { drafts[row.key] = row.content })
   } finally {
     loadingDetail.value = false
   }
 }
 
-async function saveTranslation(row: TranslationRow) {
-  const content = (drafts[row.key] || '').trim()
-  if (!content) {
-    message.warning(t('i18nData.translationRequired'))
-    return
+async function openEditor(row: TranslationRow) {
+  editorOpen.value = true
+  editorLoading.value = true
+  editorResourceId.value = row.resId
+  editorField.value = row.field
+  editorSource.value = row.source
+  Object.keys(editorDrafts).forEach(key => delete editorDrafts[key])
+  try {
+    const data = await i18nApi.texts(resourceType.value, row.resId)
+    editorSource.value = data.defaultValue[row.field] || row.source
+    availableLangs.value.forEach(lang => { editorDrafts[lang] = data.texts[row.field]?.[lang] || '' })
+  } finally {
+    editorLoading.value = false
   }
-  savingKey.value = row.key
+}
+
+async function saveEditor() {
+  if (!editorResourceId.value || !editorField.value) return
+  editorSaving.value = true
   try {
     await i18nApi.save({
       resType: resourceType.value,
-      resId: resourceId.value.trim(),
-      texts: { [row.field]: { [row.lang]: content } },
+      resId: editorResourceId.value,
+      texts: { [editorField.value]: Object.fromEntries(availableLangs.value.map(lang => [lang, editorDrafts[lang] || ''])) },
     })
     message.success(t('i18nData.saveSuccess'))
-    await queryDetail()
+    editorOpen.value = false
+    if (activeView.value === 'pending') await loadPending()
+    else await queryTexts()
   } finally {
-    savingKey.value = ''
+    editorSaving.value = false
   }
 }
 
 function deleteItem(row: TranslationRow): I18nDeleteItem {
-  return { resType: resourceType.value, resId: resourceId.value.trim(), field: row.field, lang: row.lang }
+  return { resType: resourceType.value, resId: row.resId, field: row.field, lang: row.lang }
 }
 
 async function deleteTranslation(row: TranslationRow) {
@@ -158,7 +230,7 @@ async function deleteTranslation(row: TranslationRow) {
   try {
     await i18nApi.remove(deleteItem(row))
     message.success(t('i18nData.deleteSuccess'))
-    await queryDetail()
+    await queryTexts()
   } finally {
     deletingKey.value = ''
   }
@@ -171,7 +243,7 @@ async function batchDelete() {
   try {
     const result = await i18nApi.batchDelete(rows.map(deleteItem))
     message.success(t('i18nData.batchDeleteSuccess', { count: result.deleted }))
-    await queryDetail()
+    await queryTexts()
   } finally {
     batchDeleting.value = false
   }
@@ -181,58 +253,64 @@ function onSelectionChange(keys: Array<string | number>) {
   selectedRowKeys.value = keys.map(String)
 }
 
+async function changeListPage(page: number, pageSize = listLimit.value) {
+  listPage.value = pageSize === listLimit.value ? page : 1
+  listLimit.value = pageSize
+  await queryTexts()
+}
+
+async function changePendingPage(page: number, pageSize = pendingLimit.value) {
+  pendingPage.value = pageSize === pendingLimit.value ? page : 1
+  pendingLimit.value = pageSize
+  await loadPending()
+}
+
 async function loadPending(reset = false) {
   if (!pendingLang.value) return
-  if (reset) cursorHistory.value = ['0']
+  if (reset) pendingPage.value = 1
   pendingLoading.value = true
   try {
-    const data = await i18nApi.pending(resourceType.value, pendingLang.value, currentCursor.value, pendingLimit.value)
-    pendingItems.value = data.items || []
-    nextAfterId.value = data.nextAfterId || pendingItems.value[pendingItems.value.length - 1]?.resId || ''
-    serverHasMore.value = typeof data.hasMore === 'boolean' ? data.hasMore : null
-    Object.keys(pendingDrafts).forEach(key => delete pendingDrafts[key])
-    pendingItems.value.forEach(item => { pendingDrafts[`${item.resId}:${item.field}`] = item.content || '' })
+    const data = await i18nApi.pending(resourceType.value, pendingLang.value, pendingPage.value, pendingLimit.value)
+    pendingItems.value = (data.items || []).map(item => ({
+      ...item,
+      resId: item.resId || item.res_id || '',
+      source: item.source || item.key,
+      content: '',
+    }))
+    pendingPage.value = data.page || pendingPage.value
+    pendingLimit.value = data.page_size || pendingLimit.value
+    pendingTotal.value = data.total || 0
   } finally {
     pendingLoading.value = false
   }
 }
 
-async function nextPendingPage() {
-  if (!nextAfterId.value) return
-  cursorHistory.value.push(nextAfterId.value)
-  await loadPending()
-}
-
-async function previousPendingPage() {
-  if (!hasPrevious.value) return
-  cursorHistory.value.pop()
-  await loadPending()
-}
-
-async function savePending(item: I18nPendingItem) {
-  const key = `${item.resId}:${item.field}`
-  const content = (pendingDrafts[key] || '').trim()
-  if (!content) {
-    message.warning(t('i18nData.translationRequired'))
-    return
-  }
-  pendingSavingKey.value = key
-  try {
-    await i18nApi.save({
-      resType: resourceType.value,
-      resId: item.resId,
-      texts: { [item.field]: { [pendingLang.value]: content } },
-    })
-    message.success(t('i18nData.saveSuccess'))
-    await loadPending()
-  } finally {
-    pendingSavingKey.value = ''
-  }
+function openPendingEditor(item: I18nPendingItem) {
+  openEditor({
+    key: `${item.resId}:${item.field}:${pendingLang.value}`,
+    resId: item.resId,
+    resourceKey: item.key,
+    field: item.field,
+    lang: pendingLang.value,
+    source: item.source || item.key,
+    content: '',
+  })
 }
 
 watch(resourceType, loadMeta)
 watch(pendingLang, resetPending)
-onMounted(loadMeta)
+watch(() => [route.query.resType, route.query.resId], ([nextType, nextId]) => {
+  if (nextType === 'menu' || nextType === 'dict_item') resourceType.value = nextType
+  resourceId.value = typeof nextId === 'string' ? nextId : ''
+  queryTexts(true)
+})
+onMounted(() => {
+  const queryType = route.query.resType
+  const queryId = route.query.resId
+  if (queryType === 'menu' || queryType === 'dict_item') resourceType.value = queryType
+  if (typeof queryId === 'string') resourceId.value = queryId
+  loadMeta()
+})
 </script>
 
 <template>
@@ -253,18 +331,18 @@ onMounted(loadMeta)
             <a-select v-model:value="resourceType" class="i18n-resource-select" :loading="loadingMeta">
               <a-select-option v-for="item in resourceOptions" :key="item.value" :value="item.value">{{ item.label }}</a-select-option>
             </a-select>
-            <a-input v-model:value="resourceId" class="i18n-id-input" allow-clear :placeholder="t('i18nData.resourceId')" @press-enter="queryDetail"/>
-            <a-button type="primary" :loading="loadingDetail" :disabled="apiUnavailable || !meta" @click="queryDetail">
+            <a-input v-model:value="resourceId" class="i18n-id-input" allow-clear :placeholder="t('i18nData.resourceIdOptional')" @press-enter="queryTexts(true)"/>
+            <a-button type="primary" :loading="loadingDetail" :disabled="apiUnavailable || !meta || !resourceIdFilterValid" @click="queryTexts(true)">
               <template #icon><Search :size="15"/></template>{{ t('common.search') }}
             </a-button>
-            <a-button :loading="loadingDetail" :disabled="apiUnavailable || !detail" @click="queryDetail">
+            <a-button :loading="loadingDetail" :disabled="apiUnavailable || (!detail && !textList)" @click="queryTexts()">
               <template #icon><RefreshCw :size="15"/></template>{{ t('common.refresh') }}
             </a-button>
           </a-space>
         </div>
 
-        <template v-if="detail">
-          <div class="i18n-resource-summary">
+        <template v-if="detail || textList">
+          <div v-if="detail" class="i18n-resource-summary">
             <div><span>{{ t('i18nData.resourceType') }}</span><strong>{{ detail.label }}</strong></div>
             <div><span>{{ t('i18nData.resourceId') }}</span><strong>{{ detail.resId }}</strong></div>
             <div><span>{{ t('i18nData.defaultLanguage') }}</span><strong>{{ languageLabel(detail.defaultLang) }}</strong></div>
@@ -272,7 +350,7 @@ onMounted(loadMeta)
 
           <div class="i18n-table-toolbar">
             <span>{{ t('i18nData.translationHint') }}</span>
-            <a-popconfirm :title="t('i18nData.batchDeleteConfirm')" :ok-text="t('common.confirm')" :cancel-text="t('common.cancel')" @confirm="batchDelete">
+            <a-popconfirm v-if="!listMode" :title="t('i18nData.batchDeleteConfirm')" :ok-text="t('common.confirm')" :cancel-text="t('common.cancel')" @confirm="batchDelete">
               <a-button danger :loading="batchDeleting" :disabled="!canBatchDelete">
                 <template #icon><Trash2 :size="15"/></template>{{ t('i18nData.batchDelete') }}
               </a-button>
@@ -288,23 +366,19 @@ onMounted(loadMeta)
             row-key="key"
             size="middle"
           >
+            <a-table-column v-if="listMode" key="resId" :title="t('i18nData.resourceId')" data-index="resId" :width="190"/>
+            <a-table-column v-if="listMode" key="resourceKey" :title="t('i18nData.resourceKey')" data-index="resourceKey" :width="190"/>
             <a-table-column key="field" :title="t('i18nData.field')" data-index="field" :width="130"/>
-            <a-table-column key="source" :title="t('i18nData.source')" data-index="source" :width="220"/>
-            <a-table-column key="lang" :title="t('i18nData.targetLanguage')" :width="150">
+            <a-table-column v-if="!listMode" key="lang" :title="t('i18nData.targetLanguage')" :width="150">
               <template #default="{ text }">{{ languageLabel(text) }}</template>
-            </a-table-column>
-            <a-table-column key="translation" :title="t('i18nData.translation')" :width="300">
-              <template #default="{ record }">
-                <a-input v-model:value="drafts[record.key]" :maxlength="meta?.fields[record.field] || 512" :placeholder="t('i18nData.translationPlaceholder')"/>
-              </template>
             </a-table-column>
             <a-table-column key="operations" :title="t('common.operation')" fixed="right" :width="190">
               <template #default="{ record }">
                 <a-space :size="2">
-                  <a-button type="link" size="small" :loading="savingKey === record.key" :disabled="apiUnavailable" @click="saveTranslation(record)">
-                    <template #icon><Save :size="14"/></template>{{ t('common.save') }}
+                  <a-button type="link" size="small" :disabled="apiUnavailable" @click="openEditor(record)">
+                    <template #icon><Languages :size="14"/></template>{{ t('common.edit') }}
                   </a-button>
-                  <a-popconfirm :title="t('i18nData.deleteConfirm')" :ok-text="t('common.confirm')" :cancel-text="t('common.cancel')" @confirm="deleteTranslation(record)">
+                  <a-popconfirm v-if="!listMode" :title="t('i18nData.deleteConfirm')" :ok-text="t('common.confirm')" :cancel-text="t('common.cancel')" @confirm="deleteTranslation(record)">
                     <a-button type="link" danger size="small" :loading="deletingKey === record.key" :disabled="apiUnavailable || !record.content">
                       <template #icon><Trash2 :size="14"/></template>{{ t('common.delete') }}
                     </a-button>
@@ -313,8 +387,9 @@ onMounted(loadMeta)
               </template>
             </a-table-column>
           </a-table>
+          <AppPagination v-if="listMode" :current="listPage" :page-size="listLimit" :total="textList?.total || 0" @change="changeListPage"/>
         </template>
-        <a-empty v-else class="i18n-empty" :description="t(apiUnavailable ? 'i18nData.apiPendingTitle' : 'i18nData.queryHint')"/>
+        <a-empty v-else class="i18n-empty" :description="t(apiUnavailable ? 'i18nData.apiPendingTitle' : 'i18nData.noData')"/>
       </a-tab-pane>
 
       <a-tab-pane key="pending" :tab="t('i18nData.missingTranslations')">
@@ -340,32 +415,36 @@ onMounted(loadMeta)
           <a-table-column key="key" :title="t('i18nData.resourceKey')" data-index="key" :width="170"/>
           <a-table-column key="field" :title="t('i18nData.field')" data-index="field" :width="110"/>
           <a-table-column key="source" :title="t('i18nData.source')" data-index="source" :width="220"/>
-          <a-table-column key="translation" :title="t('i18nData.translation')" :width="300">
-            <template #default="{ record }">
-              <a-input v-model:value="pendingDrafts[`${record.resId}:${record.field}`]" :maxlength="meta?.fields[record.field] || 512" :placeholder="t('i18nData.translationPlaceholder')"/>
-            </template>
-          </a-table-column>
+          <a-table-column key="lang" :title="t('i18nData.targetLanguage')" :width="150"><template #default>{{ languageLabel(pendingLang) }}</template></a-table-column>
           <a-table-column key="operations" :title="t('common.operation')" fixed="right" :width="110">
             <template #default="{ record }">
-              <a-button type="link" size="small" :loading="pendingSavingKey === `${record.resId}:${record.field}`" :disabled="apiUnavailable" @click="savePending(record)">
-                <template #icon><Save :size="14"/></template>{{ t('common.save') }}
+              <a-button type="link" size="small" :disabled="apiUnavailable" @click="openPendingEditor(record)">
+                <template #icon><Languages :size="14"/></template>{{ t('common.edit') }}
               </a-button>
             </template>
           </a-table-column>
           <template #emptyText><a-empty :description="t(apiUnavailable ? 'i18nData.apiPendingTitle' : 'i18nData.noMissing')"/></template>
         </a-table>
 
-        <div class="i18n-cursor-pagination">
-          <span>{{ t('i18nData.cursorPage', { page: cursorHistory.length }) }}</span>
-          <a-space>
-            <a-select v-model:value="pendingLimit" class="i18n-limit-select" size="small" @change="loadPending(true)">
-              <a-select-option v-for="size in [10, 20, 50, 100]" :key="size" :value="size">{{ t('common.perPage', { size }) }}</a-select-option>
-            </a-select>
-            <a-button size="small" :disabled="!hasPrevious || pendingLoading" @click="previousPendingPage"><template #icon><ChevronLeft :size="14"/></template>{{ t('i18nData.previousPage') }}</a-button>
-            <a-button size="small" :disabled="!hasNext || pendingLoading" @click="nextPendingPage">{{ t('i18nData.nextPage') }}<template #icon><ChevronRight :size="14"/></template></a-button>
-          </a-space>
-        </div>
+        <AppPagination :current="pendingPage" :page-size="pendingLimit" :total="pendingTotal" @change="changePendingPage"/>
       </a-tab-pane>
     </a-tabs>
+
+    <a-modal v-model:open="editorOpen" :title="t('i18nLabels.editTranslations')" :width="620" :confirm-loading="editorSaving" :ok-text="t('common.save')" @ok="saveEditor">
+      <a-spin :spinning="editorLoading">
+        <div class="i18n-editor">
+          <div class="i18n-editor-meta"><span>{{ t('i18nData.resourceId') }}</span><strong>{{ editorResourceId }}</strong></div>
+          <div class="i18n-editor-field"><span>{{ t('i18nData.field') }}</span><strong>{{ editorField }}</strong></div>
+          <a-form layout="vertical">
+            <a-form-item :label="`${languageLabel(meta?.defaultLang || 'zh-CN')} · ${t('i18nData.source')}`">
+              <a-input :value="editorSource" disabled/>
+            </a-form-item>
+            <a-form-item v-for="lang in availableLangs" :key="lang" :label="languageLabel(lang)">
+              <a-input v-model:value="editorDrafts[lang]" :maxlength="meta?.fields[editorField] || 512" :placeholder="t('i18nData.translationPlaceholder')"/>
+            </a-form-item>
+          </a-form>
+        </div>
+      </a-spin>
+    </a-modal>
   </section>
 </template>

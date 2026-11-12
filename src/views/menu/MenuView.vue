@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { ChevronsUpDown, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
+import { ChevronsUpDown, Languages, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { ApiError } from '../../utils/http'
 import { menuApi, type MenuItem, type MenuPayload, type MenuType } from '../../api/menu'
 import { useAppStore } from '../../store/modules/app'
 import { toServerMenuLocale } from '../../locales'
+import { i18nApi, type I18nMeta } from '../../api/i18n'
 
 const { t } = useI18n()
 const app = useAppStore()
@@ -21,6 +22,12 @@ const statusFilter = ref<number | undefined>()
 const expandedRowKeys = ref<string[]>([])
 const modalOpen = ref(false)
 const editingId = ref<string | null>(null)
+const translationModalOpen = ref(false)
+const translationLoading = ref(false)
+const translationSaving = ref(false)
+const translationTarget = ref<MenuItem | null>(null)
+const translationMeta = ref<I18nMeta | null>(null)
+const translationDrafts = ref<Record<string, string>>({})
 const requestLang = computed(() => toServerMenuLocale(app.locale))
 
 const emptyForm = (): MenuPayload => ({
@@ -94,6 +101,38 @@ function resetFilters() {
   statusFilter.value = undefined
 }
 
+function openTranslations(item: MenuItem) {
+  translationTarget.value = item
+  translationModalOpen.value = true
+  translationLoading.value = true
+  Promise.all([i18nApi.meta('menu'), i18nApi.texts('menu', item.id)])
+    .then(([meta, detail]) => {
+      translationMeta.value = meta
+      const values: Record<string, string> = {}
+      meta.langs.filter(lang => lang !== meta.defaultLang).forEach(lang => {
+        values[lang] = detail.texts.name?.[lang] || ''
+      })
+      translationDrafts.value = values
+    })
+    .finally(() => { translationLoading.value = false })
+}
+
+async function saveTranslations() {
+  if (!translationTarget.value || !translationMeta.value) return
+  translationSaving.value = true
+  try {
+    await i18nApi.save({
+      resType: 'menu',
+      resId: translationTarget.value.id,
+      texts: { name: Object.fromEntries(translationMeta.value.langs.filter(lang => lang !== translationMeta.value?.defaultLang).map(lang => [lang, translationDrafts.value[lang] || ''])) },
+    })
+    message.success(t('i18nData.saveSuccess'))
+    translationModalOpen.value = false
+  } finally {
+    translationSaving.value = false
+  }
+}
+
 function toggleExpand() {
   expandedRowKeys.value = expandedRowKeys.value.length
     ? []
@@ -164,7 +203,7 @@ async function save() {
     path,
     component: form.value.type === 2 ? form.value.component.trim() : '',
     code,
-    names: Object.fromEntries(Object.entries(form.value.names).filter(([, value]) => value.trim()).map(([lang, value]) => [lang, value.trim()])),
+    names: { 'zh-CN': form.value.names['zh-CN'].trim() },
   }
   saving.value = true
   try {
@@ -262,6 +301,7 @@ onMounted(load)
         <template #default="{ record }">
           <a-space :size="2">
             <a-button type="link" size="small" :disabled="apiUnavailable" @click="openEdit(record)"><template #icon><Pencil :size="14"/></template>{{ t('common.edit') }}</a-button>
+            <a-button type="link" size="small" :disabled="apiUnavailable" @click="openTranslations(record)"><template #icon><Languages :size="14"/></template>{{ t('i18nLabels.editTranslations') }}</a-button>
             <a-button v-if="record.type !== 3" type="link" size="small" @click="openCreate(record)"><template #icon><Plus :size="14"/></template>{{ t('menuAdmin.addChild') }}</a-button>
             <a-popconfirm :title="t('menuAdmin.deleteConfirm')" :ok-text="t('common.confirm')" :cancel-text="t('common.cancel')" @confirm="remove(record)">
               <a-button type="link" danger size="small" :disabled="apiUnavailable"><template #icon><Trash2 :size="14"/></template>{{ t('common.delete') }}</a-button>
@@ -292,8 +332,6 @@ onMounted(load)
           <a-radio-group v-model:value="form.type" @change="normalizeParent"><a-radio-button :value="1">{{ t('menuAdmin.type1') }}</a-radio-button><a-radio-button :value="2">{{ t('menuAdmin.type2') }}</a-radio-button><a-radio-button :value="3">{{ t('menuAdmin.type3') }}</a-radio-button></a-radio-group>
         </a-form-item>
         <a-form-item :label="t('menuAdmin.nameZh')" required><a-input v-model:value="form.names['zh-CN']" :maxlength="64"/></a-form-item>
-        <a-form-item :label="t('menuAdmin.nameTw')"><a-input v-model:value="form.names['zh-TW']" :maxlength="64"/></a-form-item>
-        <a-form-item :label="t('menuAdmin.nameEn')"><a-input v-model:value="form.names['en-US']" :maxlength="64"/></a-form-item>
         <a-form-item v-if="form.type !== 3" :label="t('menuAdmin.path')" required><a-input v-model:value="form.path" :maxlength="128" placeholder="/system/users"/></a-form-item>
         <a-form-item :label="t('menuAdmin.code')" :required="form.type !== 1 || Boolean(editingId)"><a-input v-model:value="form.code" :maxlength="64" placeholder="system:user:page"/></a-form-item>
         <a-form-item v-if="form.type === 2" :label="t('menuAdmin.component')"><a-input v-model:value="form.component" :maxlength="128" placeholder="views/system/UserView"/></a-form-item>
@@ -303,6 +341,29 @@ onMounted(load)
         <a-form-item :label="t('menuAdmin.status')"><a-switch v-model:checked="form.status" :checked-value="1" :un-checked-value="0"/></a-form-item>
         <a-form-item class="menu-form-wide" :label="t('menuAdmin.remark')"><a-textarea v-model:value="form.remark" :rows="3" :maxlength="255" show-count/></a-form-item>
       </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="translationModalOpen"
+      :title="t('i18nLabels.editTranslations')"
+      :width="560"
+      :confirm-loading="translationSaving"
+      :ok-text="t('common.save')"
+      @ok="saveTranslations"
+    >
+      <a-spin :spinning="translationLoading">
+        <div class="menu-translation-meta">
+          <span>{{ t('i18nData.resourceId') }}</span><strong>{{ translationTarget?.id }}</strong>
+        </div>
+        <a-form layout="vertical" class="menu-translation-form">
+          <a-form-item :label="`${t('i18nData.languages.zh-CN')} · ${t('i18nData.source')}`">
+            <a-input :value="translationTarget?.name" disabled/>
+          </a-form-item>
+          <a-form-item v-for="lang in (translationMeta?.langs || []).filter(item => item !== translationMeta?.defaultLang)" :key="lang" :label="t(`i18nData.languages.${lang}`)">
+            <a-input v-model:value="translationDrafts[lang]" :maxlength="translationMeta?.fields.name || 64" :placeholder="t('i18nData.translationPlaceholder')"/>
+          </a-form-item>
+        </a-form>
+      </a-spin>
     </a-modal>
   </section>
 </template>
