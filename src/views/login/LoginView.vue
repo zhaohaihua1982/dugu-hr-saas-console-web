@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../store/modules/auth'
-import { localeOptions, type AppLocale } from '../../locales'
+import { type AppLocale } from '../../locales'
 import { useAppStore, type AppTheme } from '../../store/modules/app'
 
 const { t } = useI18n()
@@ -89,7 +89,7 @@ onMounted(() => { loadLoginConfig(); loadCaptcha() })
   <main :class="['login-page', themeClass]">
     <section class="login-shell">
       <div class="brand-panel"><div class="brand-lockup"><div class="brand-mark"><i/><i/><i/></div><b>{{ t('layout.brandShort') }}</b></div><div class="brand-copy"><small>DUGU · PEOPLE OS</small><h1>{{ t('login.slogan') }}</h1><p>{{ t('login.sloganDesc') }}</p></div><div class="brand-features"><span><ShieldCheck :size="15"/>{{ t('login.security') }}</span><span><Users :size="15"/>{{ t('login.collaboration') }}</span></div></div>
-      <section class="login-panel"><div class="login-tools"><label><Globe2 :size="15"/><select :value="app.locale" @change="setLocale(($event.target as HTMLSelectElement).value as AppLocale)"><option v-for="item in localeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select></label><label><Palette :size="15"/><select :value="app.theme" @change="setTheme(($event.target as HTMLSelectElement).value as AppTheme)"><option v-for="item in themes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label></div>
+      <section class="login-panel"><div class="login-tools"><label><Globe2 :size="15"/><select :value="app.locale" @change="setLocale(($event.target as HTMLSelectElement).value as AppLocale)"><option v-for="item in app.languageOptions" :key="item.value" :value="item.value" :disabled="item.disabled">{{ item.label }}</option></select></label><label><Palette :size="15"/><select :value="app.theme" @change="setTheme(($event.target as HTMLSelectElement).value as AppTheme)"><option v-for="item in themes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label></div>
         <div class="login-card"><div class="heading"><small>WELCOME BACK</small><h2>{{ t('login.title') }}</h2><p>{{ t('login.subtitle') }}</p></div><div class="tabs"><button v-for="item in loginModes" :key="item.key" :class="{ active: mode === item.key }" @click="selectMode(item.key)">{{ item.label }}</button></div>
           <form @submit.prevent="submit">
             <template v-if="mode === 'usernamePassword'">

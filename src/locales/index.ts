@@ -18,6 +18,16 @@ export const localeOptions = [
   { value: 'es-ES' as const, label: 'Español' },
 ]
 
+export function normalizeLocaleCode(value: string) {
+  return value.trim().toLowerCase().replace(/_/g, '-').replace(/\.(ts|js|json)$/i, '')
+}
+
+const bundledLocaleCodes = new Set(localeOptions.map(item => normalizeLocaleCode(item.value)))
+export function hasLocalePack(code: string) {
+  const normalized = normalizeLocaleCode(code)
+  return bundledLocaleCodes.has(normalized) || bundledLocaleCodes.has(normalized.split('-')[0])
+}
+
 export function toServerMenuLocale(locale: AppLocale): ServerMenuLocale {
   return locale === 'zh-CN' || locale === 'zh-TW' || locale === 'en-US' ? locale : 'en-US'
 }

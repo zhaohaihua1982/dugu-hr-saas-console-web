@@ -1,6 +1,6 @@
 import http from '../utils/http'
 import { endpoints } from './endpoints'
-export interface SysUser { id: string; username: string; name: string; email: string; mobile: string; status: number; created_at: string; is_current: boolean }
+export interface SysUser { id: string; username: string; name: string; email: string; mobile: string; status: number; created_at: string; is_current: boolean; dept_id?: string | null; dept_name?: string | null }
 export interface UserPage { items: SysUser[]; total: number; page: number; page_size: number }
 export interface BatchItemResult { id: string; success: boolean; code?: number }
 export interface BatchResult { items: BatchItemResult[]; succeeded: number; failed: number }

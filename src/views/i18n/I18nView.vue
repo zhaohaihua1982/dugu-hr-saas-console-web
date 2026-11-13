@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { ApiError } from '../../utils/http'
 import AppPagination from '../../components/AppPagination.vue'
+import LanguageConfigView from './LanguageConfigView.vue'
 import { menuApi, type MenuItem } from '../../api/menu'
 import { useAppStore } from '../../store/modules/app'
 import { toServerMenuLocale } from '../../locales'
@@ -325,6 +326,10 @@ onMounted(() => {
     />
 
     <a-tabs v-model:activeKey="activeView">
+      <a-tab-pane key="languages" :tab="t('i18nData.languageConfig')">
+        <LanguageConfigView />
+      </a-tab-pane>
+
       <a-tab-pane key="resource" :tab="t('i18nData.resourceTranslations')">
         <div class="i18n-filter-bar">
           <a-space wrap>

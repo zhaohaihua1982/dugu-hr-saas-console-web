@@ -8,7 +8,7 @@ import { routes } from '../router/routes'
 import { menuApi, type MenuItem } from '../api/menu'
 import { useAuthStore } from '../store/modules/auth'
 import { useAppStore, type AppTheme } from '../store/modules/app'
-import { localeOptions, toServerMenuLocale, type AppLocale } from '../locales'
+import { toServerMenuLocale, type AppLocale } from '../locales'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -83,7 +83,7 @@ async function revealActiveTab() {
   button?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
   updateTabsOverflow()
 }
-function setLocale(value: AppLocale) { app.setLocale(value); languageOpen.value = false }
+function setLocale(value: AppLocale) { if (app.setLocale(value)) languageOpen.value = false }
 async function logout() { await auth.logout(); router.replace('/login') }
 async function loadServerMenuNames() {
   try {
@@ -136,7 +136,7 @@ onBeforeUnmount(() => tabsResizeObserver?.disconnect())
         <div class="top-actions">
           <div class="language-control">
             <button @click="languageOpen = !languageOpen"><Globe2 :size="17"/></button>
-            <div v-if="languageOpen" class="language-popover"><button v-for="item in localeOptions" :key="item.value" @click="setLocale(item.value)">{{ item.label }}</button></div>
+            <div v-if="languageOpen" class="language-popover"><button v-for="item in app.languageOptions" :key="item.value" :disabled="item.disabled" @click="setLocale(item.value)">{{ item.label }}</button></div>
           </div>
           <label class="theme-control"><Palette :size="16"/><select :value="app.theme" @change="app.setTheme(($event.target as HTMLSelectElement).value as AppTheme)"><option v-for="item in themes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
           <button class="account-button" @click="accountOpen = !accountOpen">{{ auth.user?.name?.slice(0, 1) || 'A' }}</button>

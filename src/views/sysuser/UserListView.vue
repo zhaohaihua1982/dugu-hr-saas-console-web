@@ -3,12 +3,15 @@ import { computed, onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import { sysuserApi, type BatchResult, type SysUser } from '../../api/sysuser'
+import { departmentApi, type Department } from '../../api/department'
 import AppPagination from '../../components/AppPagination.vue'
 
 const { t } = useI18n()
 const loading = ref(false)
 const keyword = ref('')
 const status = ref<string | undefined>()
+const departmentId = ref<string | undefined>()
+const departments = ref<Department[]>([])
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
@@ -20,7 +23,9 @@ const resetTarget = ref<SysUser | null>(null)
 const newPassword = ref('')
 const freezeMinutes = ref<number | null>(60)
 const editing = ref<SysUser | null>(null)
-const form = ref({ username: '', name: '', password: '', mobile: '', email: '' })
+const form = ref<{ username: string; name: string; password: string; mobile: string; email: string; dept_id?: string }>({ username: '', name: '', password: '', mobile: '', email: '', dept_id: undefined })
+const departmentFilterTree = computed(() => departments.value.map(item => departmentNode(item, false)))
+const departmentEditTree = computed(() => departments.value.map(item => departmentNode(item, true)))
 const selectedIds = ref<string[]>([])
 const selectedUsers = computed(() => rows.value.filter(user => selectedIds.value.includes(user.id)))
 const selectedFreezableUsers = computed(() => selectedUsers.value.filter(user => !user.is_current && user.status !== 3))
@@ -35,7 +40,7 @@ const rowSelection = computed(() => ({
 async function load() {
   loading.value = true
   try {
-    const data = await sysuserApi.list({ page: page.value, page_size: pageSize.value, keyword: keyword.value || undefined, status: status.value })
+    const data = await sysuserApi.list({ page: page.value, page_size: pageSize.value, keyword: keyword.value || undefined, status: status.value, dept_id: departmentId.value })
     rows.value = Array.isArray(data?.items) ? data.items : []
     total.value = Number(data?.total || 0)
     selectedIds.value = selectedIds.value.filter(id => rows.value.some(user => user.id === id && !user.is_current))
@@ -44,18 +49,25 @@ async function load() {
   }
 }
 
+function departmentNode(item: Department, disableInactive: boolean): Record<string, unknown> {
+  return { value: item.id, title: item.name, disabled: disableInactive && item.status !== 1, children: (item.children || []).map(child => departmentNode(child, disableInactive)) }
+}
+async function loadDepartments() {
+  try { const data = await departmentApi.tree(true); departments.value = Array.isArray(data) ? data : [] } catch { departments.value = [] }
+}
+
 function open(user?: SysUser) {
   editing.value = user || null
   form.value = user
-    ? { username: user.username, name: user.name, password: '', mobile: '', email: user.email }
-    : { username: '', name: '', password: '', mobile: '', email: '' }
+    ? { username: user.username, name: user.name, password: '', mobile: '', email: user.email, dept_id: user.dept_id || undefined }
+    : { username: '', name: '', password: '', mobile: '', email: '', dept_id: undefined }
   modal.value = true
 }
 
 async function save() {
   try {
     if (editing.value) {
-      const data: Record<string, unknown> = { name: form.value.name, email: form.value.email }
+      const data: Record<string, unknown> = { name: form.value.name, email: form.value.email, dept_id: form.value.dept_id || null }
       if (form.value.mobile) data.mobile = form.value.mobile
       await sysuserApi.update(editing.value.id, data)
     } else {
@@ -156,7 +168,7 @@ function changePagination(nextPage: number, nextPageSize: number) {
   load()
 }
 
-onMounted(load)
+onMounted(() => { loadDepartments(); load() })
 </script>
 
 <template>
@@ -169,8 +181,9 @@ onMounted(load)
           <a-select-option value="2">{{ t('user.disabled') }}</a-select-option>
           <a-select-option value="3">{{ t('user.locked') }}</a-select-option>
         </a-select>
+        <a-tree-select v-model:value="departmentId" allow-clear :tree-data="departmentFilterTree" tree-default-expand-all style="width:180px" :placeholder="t('user.department')" />
         <a-button :loading="loading" @click="load">{{ t('common.search') }}</a-button>
-        <a-button @click="keyword=''; status=undefined; page=1; load()">{{ t('common.reset') }}</a-button>
+        <a-button @click="keyword=''; status=undefined; departmentId=undefined; page=1; load()">{{ t('common.reset') }}</a-button>
       </a-space>
       <a-space>
         <a-button :disabled="!selectedFreezableUsers.length" @click="openBatchFreeze">{{ t('user.batchFreeze') }}</a-button>
@@ -190,6 +203,7 @@ onMounted(load)
       <a-table-column key="username" :title="t('user.username')" data-index="username" :width="140"/>
       <a-table-column key="mobile" :title="t('user.mobile')" data-index="mobile" :width="140"/>
       <a-table-column key="email" :title="t('user.email')" data-index="email" :width="220"/>
+      <a-table-column key="department" :title="t('user.department')" data-index="dept_name" :width="150"><template #default="{ text }">{{ text || '—' }}</template></a-table-column>
       <a-table-column key="status" :title="t('common.status')" :width="90">
         <template #default="{ record }">
           <a-tag :color="record.status === 1 ? 'success' : record.status === 3 ? 'error' : 'warning'">
@@ -220,6 +234,7 @@ onMounted(load)
         <a-form-item v-if="!editing" :label="t('user.password')"><a-input-password v-model:value="form.password"/></a-form-item>
         <a-form-item :label="t('user.mobile')"><a-input v-model:value="form.mobile" :placeholder="editing ? t('user.mobileKeep') : ''"/></a-form-item>
         <a-form-item :label="t('user.email')"><a-input v-model:value="form.email"/></a-form-item>
+        <a-form-item :label="t('user.department')"><a-tree-select v-model:value="form.dept_id" allow-clear :tree-data="departmentEditTree" tree-default-expand-all :placeholder="t('user.departmentOptional')" /></a-form-item>
       </a-form>
     </a-modal>
 

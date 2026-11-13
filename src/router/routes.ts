@@ -6,6 +6,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/', component: BasicLayout, redirect: '/welcome', children: [
     { path: '/welcome', name: 'welcome', component: () => import('../views/shared/WelcomeView.vue'), meta: { title: 'layout.welcome', hidden: true } },
     { path: '/organization/users', name: 'users', component: () => import('../views/sysuser/UserListView.vue'), meta: { title: 'menu.user', group: 'menu.organization', icon: 'Users', sort: 10 } },
+    { path: '/organization/departments', name: 'departments', component: () => import('../views/dept/DeptListView.vue'), meta: { title: 'menu.department', group: 'menu.organization', icon: 'Building2', sort: 20 } },
     { path: '/permission/menus', name: 'menus', component: () => import('../views/menu/MenuView.vue'), meta: { title: 'menu.menu', group: 'menu.permission', icon: 'ShieldCheck', sort: 20 } },
     { path: '/tenant/list', name: 'tenants', component: () => import('../views/tenant/TenantView.vue'), meta: { title: 'menu.tenantList', group: 'menu.tenant', icon: 'Building2', sort: 30 } },
     { path: '/tools/files', name: 'files', component: () => import('../views/file/FileView.vue'), meta: { title: 'menu.file', group: 'menu.tools', icon: 'FolderOpen', sort: 40 } },

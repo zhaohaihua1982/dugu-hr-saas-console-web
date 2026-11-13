@@ -34,7 +34,7 @@ const themeConfig = computed(() => ({
     },
   },
 }))
-onMounted(() => auth.restore())
+onMounted(() => { auth.restore(); app.loadLanguages() })
 </script>
 
 <template><a-config-provider :theme="themeConfig"><router-view /></a-config-provider></template>
